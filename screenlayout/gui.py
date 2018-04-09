@@ -20,7 +20,10 @@ import os
 import optparse
 import inspect
 
-import gtk
+import gi
+gi.require_version('Gtk', '3.0')
+
+from gi.repository import Gtk
 
 from . import widget
 from .metacity import show_keybinder
@@ -35,7 +38,7 @@ gettext.install('arandr')
 
 
 def actioncallback(function):
-    """Wrapper around a function that is intended to be used both as a callback from a gtk.Action and as a normal function.
+    """Wrapper around a function that is intended to be used both as a callback from a Gtk.Action and as a normal function.
 
     Functions taking no arguments will never be given any, functions taking one argument (callbacks for radio actions) will be given the value of the action or just the argument.
 
@@ -108,21 +111,21 @@ class Application(object):
     """
 
     def __init__(self, file=None, randr_display=None, force_version=False):
-        self.window = window = gtk.Window()
+        self.window = window = Gtk.Window()
         window.props.title = "Screen Layout Editor"
 
         # actions
-        actiongroup = gtk.ActionGroup('default')
+        actiongroup = Gtk.ActionGroup('default')
         actiongroup.add_actions([
             ("Layout", None, _("_Layout")),
-            ("New", gtk.STOCK_NEW, None, None, None, self.do_new),
-            ("Open", gtk.STOCK_OPEN, None, None, None, self.do_open),
-            ("SaveAs", gtk.STOCK_SAVE_AS, None, None, None, self.do_save_as),
+            ("New", Gtk.STOCK_NEW, None, None, None, self.do_new),
+            ("Open", Gtk.STOCK_OPEN, None, None, None, self.do_open),
+            ("SaveAs", Gtk.STOCK_SAVE_AS, None, None, None, self.do_save_as),
 
-            ("Apply", gtk.STOCK_APPLY, None, '<Control>Return', None, self.do_apply),
-            ("LayoutSettings", gtk.STOCK_PROPERTIES, None, '<Alt>Return', None, self.do_open_properties),
+            ("Apply", Gtk.STOCK_APPLY, None, '<Control>Return', None, self.do_apply),
+            ("LayoutSettings", Gtk.STOCK_PROPERTIES, None, '<Alt>Return', None, self.do_open_properties),
 
-            ("Quit", gtk.STOCK_QUIT, None, None, None, gtk.main_quit),
+            ("Quit", Gtk.STOCK_QUIT, None, None, None, Gtk.main_quit),
 
 
             ("View", None, _("_View")),
@@ -134,7 +137,7 @@ class Application(object):
             ("Metacity", None, _("_Keybindings (Metacity)"), None, None, self.do_open_metacity),
 
             ("Help", None, _("_Help")),
-            ("About", gtk.STOCK_ABOUT, None, None, None, self.about),
+            ("About", Gtk.STOCK_ABOUT, None, None, None, self.about),
             ])
         actiongroup.add_radio_actions([
             ("Zoom4", None, _("1:4"), None, None, 4),
@@ -142,10 +145,10 @@ class Application(object):
             ("Zoom16", None, _("1:16"), None, None, 16),
             ], 8, self.set_zoom)
 
-        window.connect('destroy', gtk.main_quit)
+        window.connect('destroy', Gtk.main_quit)
 
         # uimanager
-        self.uimanager = gtk.UIManager()
+        self.uimanager = Gtk.UIManager()
         accelgroup = self.uimanager.get_accel_group()
         window.add_accel_group(accelgroup)
 
@@ -164,11 +167,11 @@ class Application(object):
         self._widget_changed(self.widget)
 
         # window layout
-        vbox = gtk.VBox()
+        vbox = Gtk.VBox()
         menubar = self.uimanager.get_widget('/MenuBar')
-        vbox.pack_start(menubar, expand=False)
+        vbox.pack_start(menubar, False, True, 0)
         toolbar = self.uimanager.get_widget('/ToolBar')
-        vbox.pack_start(toolbar, expand=False)
+        vbox.pack_start(toolbar, False, True, 0)
 
         vbox.add(self.widget)
 
@@ -186,21 +189,21 @@ class Application(object):
 
     @actioncallback
     def do_open_properties(self):
-        d = gtk.Dialog(_("Script Properties"), None, gtk.DIALOG_MODAL, (gtk.STOCK_CLOSE, gtk.RESPONSE_ACCEPT))
+        d = Gtk.Dialog(_("Script Properties"), None, Gtk.DialogFlags.MODAL, (Gtk.STOCK_CLOSE, Gtk.ResponseType.ACCEPT))
         d.set_default_size(300,400)
 
-        script_editor = gtk.TextView()
+        script_editor = Gtk.TextView()
         script_buffer = script_editor.get_buffer()
         script_buffer.set_text("\n".join(self.filetemplate))
         script_editor.props.editable = False
 
-        #wacom_options = gtk.Label("FIXME")
+        #wacom_options = Gtk.Label(label="FIXME")
 
-        nb = gtk.Notebook()
-        #nb.append_page(wacom_options, gtk.Label(_("Wacom options")))
-        nb.append_page(script_editor, gtk.Label(_("Script")))
+        nb = Gtk.Notebook()
+        #nb.append_page(wacom_options, Gtk.Label(label=_("Wacom options")))
+        nb.append_page(script_editor, Gtk.Label(label=_("Script")))
 
-        d.vbox.pack_start(nb)
+        d.vbox.pack_start(nb, True, True, 0)
         d.show_all()
 
         d.run()
@@ -213,8 +216,8 @@ class Application(object):
 
         try:
             self.widget.save_to_x()
-        except Exception, e:
-            d = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, _("XRandR failed:\n%s")%e)
+        except Exception as e:
+            d = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, _("XRandR failed:\n%s")%e)
             d.run()
             d.destroy()
 
@@ -224,34 +227,34 @@ class Application(object):
 
     @actioncallback
     def do_open(self):
-        d = self._new_file_dialog(_("Open Layout"), gtk.FILE_CHOOSER_ACTION_OPEN, gtk.STOCK_OPEN)
+        d = self._new_file_dialog(_("Open Layout"), Gtk.FileChooserAction.OPEN, Gtk.STOCK_OPEN)
 
         result = d.run()
         filenames = d.get_filenames()
         d.destroy()
-        if result == gtk.RESPONSE_ACCEPT:
+        if result == Gtk.ResponseType.ACCEPT:
             assert len(filenames) == 1
             f = filenames[0]
             self.filetemplate = self.widget.load_from_file(f)
 
     @actioncallback
     def do_save_as(self):
-        d = self._new_file_dialog(_("Save Layout"), gtk.FILE_CHOOSER_ACTION_SAVE, gtk.STOCK_SAVE)
+        d = self._new_file_dialog(_("Save Layout"), Gtk.FileChooserAction.SAVE, Gtk.STOCK_SAVE)
         d.props.do_overwrite_confirmation = True
 
         result = d.run()
         filenames = d.get_filenames()
         d.destroy()
-        if result == gtk.RESPONSE_ACCEPT:
+        if result == Gtk.ResponseType.ACCEPT:
             assert len(filenames) == 1
             f = filenames[0]
             if not f.endswith('.sh'): f = f + '.sh'
             self.widget.save_to_file(f, self.filetemplate)
 
     def _new_file_dialog(self, title, type, buttontype):
-        d = gtk.FileChooserDialog(title, None, type)
-        d.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-        d.add_button(buttontype, gtk.RESPONSE_ACCEPT)
+        d = Gtk.FileChooserDialog(title, None, type)
+        d.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        d.add_button(buttontype, Gtk.ResponseType.ACCEPT)
 
         layoutdir = os.path.expanduser('~/.screenlayout/')
         try:
@@ -260,7 +263,7 @@ class Application(object):
             pass
         d.set_current_folder(layoutdir)
 
-        f = gtk.FileFilter()
+        f = Gtk.FileFilter()
         f.set_name('Shell script (Layout file)')
         f.add_pattern('*.sh')
         d.add_filter(f)
@@ -285,20 +288,20 @@ class Application(object):
     #################### application related ####################
 
     def about(self, *args):
-        d = gtk.AboutDialog()
+        d = Gtk.AboutDialog()
         d.props.program_name = PROGRAMNAME
         d.props.version = __version__
         d.props.translator_credits = "\n".join(TRANSLATORS)
         d.props.copyright = COPYRIGHT
         d.props.comments = PROGRAMDESCRIPTION
         licensetext = open(os.path.join(os.path.dirname(__file__), 'data', 'gpl-3.txt')).read()
-        d.props.license = licensetext.replace('<', u'\u2329 ').replace('>', u' \u232a')
+        d.props.license = licensetext.replace('<', '\u2329 ').replace('>', ' \u232a')
         d.props.logo_icon_name = 'video-display'
         d.run()
         d.destroy()
 
     def run(self):
-        gtk.main()
+        Gtk.main()
 
 def main():
     p = optparse.OptionParser(usage="%prog [savedfile]", description="Another XRandrR GUI", version="%%prog %s"%__version__)
